@@ -5,6 +5,8 @@ Here are some shader examples for Godot 3
 Check shader comment (in source) for more details
 (Go in sprite>material>shader)
 
+![preview](https://raw.githubusercontent.com/Guaranapps/godot3-shaders-samples/master/preview.gif)
+
 ### Source code made by Guaranapps :
  - [Website](http://guaranapps.com)
  - [Facebook](https://www.facebook.com/Guaranapps/)
