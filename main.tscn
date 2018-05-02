@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=25 format=2]
 
 [ext_resource path="res://icon.png" type="Texture" id=1]
 [ext_resource path="res://noise.png" type="Texture" id=2]
@@ -194,12 +194,179 @@ shader_param/threshold_max = 0.58
 shader_param/noise_texture = ExtResource( 2 )
 _sections_unfolded = [ "shader_param" ]
 
+[sub_resource type="Shader" id=15]
+
+code = "shader_type canvas_item;
+
+//This function return pseudo-random value
+//we need an input vector (st parameter) to generated output value
+float random (vec2 st) {
+    return fract(sin(dot(st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+}
+
+
+void fragment() {
+	//We use UV as input vector to generate random value
+	float val=random(UV);
+	COLOR = vec4(val,val,val,1.0);
+}"
+
+[sub_resource type="ShaderMaterial" id=16]
+
+render_priority = 0
+shader = SubResource( 15 )
+
+[sub_resource type="Shader" id=17]
+
+code = "shader_type canvas_item;
+
+uniform float noise_resolution=16.0;
+
+float random (vec2 st) {
+    return fract(sin(dot(st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+}
+
+
+void fragment() {
+	//as UV is between [0;1] we multiply with noise_resolution factor to have noise_resolution differents values
+	float val=random(floor(UV*noise_resolution));
+	COLOR = vec4(val,val,val,1.0);
+}"
+
+[sub_resource type="ShaderMaterial" id=18]
+
+render_priority = 0
+shader = SubResource( 17 )
+shader_param/noise_resolution = 16.0
+_sections_unfolded = [ "shader_param" ]
+
+[sub_resource type="Shader" id=21]
+
+code = "shader_type canvas_item;
+
+uniform float noise_resolution=16.0;
+
+float random (vec2 st) {
+    return fract(sin(dot(st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+}
+
+//This function could be optimized
+//it perform manual filtering:
+// we get color of neighbours pixels
+// val00 --val1---- val10
+//   |      |        |
+//   |      |        |
+//   |      val      |
+//   |      |        |
+// val01 --val2---- val11
+
+vec4 noise_pix(vec2 pos,float size){
+	vec2 base_vec=pos*size;
+	float val00=random(floor(base_vec));
+	float val10=random(floor(base_vec)+vec2(1,0));
+	float val01=random(floor(base_vec)+vec2(0,1));
+	float val11=random(floor(base_vec)+vec2(1,1));
+	//Mix function do interpolation as following:
+	//when last parameter is 0, result is first parameter
+	//when last parameter is 1, result is second parameter
+	//between [0-1] result is linear interpolation from first to second parameter
+	float val1=mix(val00,val10,base_vec.x-floor(base_vec.x));
+	float val2=mix(val01,val11,base_vec.x-floor(base_vec.x));
+	float val=mix(val1,val2,base_vec.y-floor(base_vec.y));
+	return vec4(val,val,val,1.0);
+}
+
+void fragment() {
+	COLOR = noise_pix(UV,noise_resolution);
+}"
+
+[sub_resource type="ShaderMaterial" id=22]
+
+render_priority = 0
+shader = SubResource( 21 )
+shader_param/noise_resolution = 16.0
+_sections_unfolded = [ "shader_param" ]
+
+[sub_resource type="Shader" id=19]
+
+code = "shader_type canvas_item;
+
+uniform float noise_resolution1=10.0;
+uniform float noise_resolution2=10.0;
+uniform float speed1=0.1;
+uniform float speed2=-0.1;
+
+float random (vec2 st) {
+    return fract(sin(dot(st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+}
+
+vec4 noise_pix(vec2 pos,float size){
+	vec2 base_vec=pos*size;
+	float val00=random(floor(base_vec));
+	float val10=random(floor(base_vec)+vec2(1,0));
+	float val01=random(floor(base_vec)+vec2(0,1));
+	float val11=random(floor(base_vec)+vec2(1,1));
+	float val1=mix(val00,val10,base_vec.x-floor(base_vec.x));
+	float val2=mix(val01,val11,base_vec.x-floor(base_vec.x));
+	float val=mix(val1,val2,base_vec.y-floor(base_vec.y));
+	return vec4(val,val,val,1.0);
+}
+
+void fragment() {
+	//combine 2 generated noises
+	vec4 noise1 = noise_pix(UV+TIME*speed1,noise_resolution1);
+	vec4 noise2 = noise_pix(UV+TIME*speed2,noise_resolution2);
+	COLOR = step(noise1,noise2);
+}"
+
+[sub_resource type="ShaderMaterial" id=20]
+
+render_priority = 0
+shader = SubResource( 19 )
+shader_param/noise_resolution1 = 10.0
+shader_param/noise_resolution2 = 10.0
+shader_param/speed1 = 0.1
+shader_param/speed2 = -0.1
+_sections_unfolded = [ "shader_param" ]
+
 [node name="main" type="Node2D" index="0"]
 
-[node name="default_shader" type="Sprite" parent="." index="0"]
+[node name="Label" type="Label" parent="." index="0"]
 
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = 13.0
+margin_top = 7.0
+margin_right = 341.0
+margin_bottom = 55.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "Here are some shader examples
+Check shader comment (in source) for more details
+(Go in sprite>material>shader)"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+
+[node name="default_shader" type="Sprite" parent="." index="1"]
+
+editor/display_folded = true
 material = SubResource( 2 )
-position = Vector2( 160.578, 120.397 )
+position = Vector2( 125.416, 155.559 )
 texture = ExtResource( 1 )
 _sections_unfolded = [ "Material" ]
 
@@ -300,10 +467,11 @@ texture_rotation_degrees = 0.0
 invert_enable = false
 invert_border = 100.0
 
-[node name="repeat_shader" type="Sprite" parent="." index="1"]
+[node name="repeat_shader" type="Sprite" parent="." index="2"]
 
+editor/display_folded = true
 material = SubResource( 4 )
-position = Vector2( 438.445, 103.262 )
+position = Vector2( 399.767, 133.149 )
 texture = ExtResource( 1 )
 _sections_unfolded = [ "Material" ]
 
@@ -329,10 +497,11 @@ lines_skipped = 0
 max_lines_visible = -1
 _sections_unfolded = [ "Material" ]
 
-[node name="sin_shader" type="Sprite" parent="." index="2"]
+[node name="sin_shader" type="Sprite" parent="." index="3"]
 
+editor/display_folded = true
 material = SubResource( 6 )
-position = Vector2( 831.522, 116.881 )
+position = Vector2( 757.682, 139.736 )
 texture = ExtResource( 1 )
 _sections_unfolded = [ "Material" ]
 
@@ -358,10 +527,11 @@ lines_skipped = 0
 max_lines_visible = -1
 _sections_unfolded = [ "Material" ]
 
-[node name="static_refraction" type="Sprite" parent="." index="3"]
+[node name="static_refraction" type="Sprite" parent="." index="4"]
 
+editor/display_folded = true
 material = SubResource( 8 )
-position = Vector2( 154.514, 320.759 )
+position = Vector2( 115.836, 303.178 )
 texture = ExtResource( 1 )
 _sections_unfolded = [ "Material" ]
 
@@ -387,10 +557,11 @@ lines_skipped = 0
 max_lines_visible = -1
 _sections_unfolded = [ "Material" ]
 
-[node name="dynamic_refraction" type="Sprite" parent="." index="4"]
+[node name="dynamic_refraction" type="Sprite" parent="." index="5"]
 
+editor/display_folded = true
 material = SubResource( 10 )
-position = Vector2( 459.41, 322.23 )
+position = Vector2( 417.216, 301.133 )
 texture = ExtResource( 1 )
 _sections_unfolded = [ "Material" ]
 
@@ -416,10 +587,11 @@ lines_skipped = 0
 max_lines_visible = -1
 _sections_unfolded = [ "Material" ]
 
-[node name="cloud" type="Sprite" parent="." index="5"]
+[node name="cloud" type="Sprite" parent="." index="6"]
 
+editor/display_folded = true
 material = SubResource( 12 )
-position = Vector2( 734.938, 321.155 )
+position = Vector2( 624.178, 259.622 )
 texture = ExtResource( 1 )
 _sections_unfolded = [ "Material" ]
 
@@ -445,10 +617,11 @@ lines_skipped = 0
 max_lines_visible = -1
 _sections_unfolded = [ "Material" ]
 
-[node name="foam" type="Sprite" parent="." index="6"]
+[node name="foam" type="Sprite" parent="." index="7"]
 
+editor/display_folded = true
 material = SubResource( 14 )
-position = Vector2( 751.957, 479.718 )
+position = Vector2( 834.587, 296.877 )
 texture = ExtResource( 1 )
 _sections_unfolded = [ "Material" ]
 
@@ -474,27 +647,124 @@ lines_skipped = 0
 max_lines_visible = -1
 _sections_unfolded = [ "Material" ]
 
-[node name="tips" type="Label" parent="." index="7"]
+[node name="pseudo_random" type="Sprite" parent="." index="8"]
+
+editor/display_folded = true
+material = SubResource( 16 )
+position = Vector2( 147.544, 448.909 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="pseudo_random" index="0"]
 
 anchor_left = 0.0
 anchor_top = 0.0
 anchor_right = 0.0
 anchor_bottom = 0.0
-margin_left = 101.0
-margin_top = 476.0
-margin_right = 429.0
-margin_bottom = 507.0
+margin_left = -109.0
+margin_top = -54.0
+margin_right = 117.0
+margin_bottom = -40.0
 rect_pivot_offset = Vector2( 0, 0 )
 rect_clip_content = false
 mouse_filter = 2
 mouse_default_cursor_shape = 0
 size_flags_horizontal = 1
 size_flags_vertical = 4
-text = "Here are some shader examples
-Check shader comment (in source) for more details
-(Go in sprite>material>shader)"
+text = "Random generation without texture"
 percent_visible = 1.0
 lines_skipped = 0
 max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="pseudo_random_stable" type="Sprite" parent="." index="9"]
+
+editor/display_folded = true
+material = SubResource( 18 )
+position = Vector2( 389.163, 449.962 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="pseudo_random_stable" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -96.0
+margin_top = -56.0
+margin_right = 131.0
+margin_bottom = -42.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "To stabilized random we use floor"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="pseudo_random_interpolation" type="Sprite" parent="." index="10"]
+
+editor/display_folded = true
+material = SubResource( 22 )
+position = Vector2( 610.897, 452.375 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="pseudo_random_interpolation" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -62.0
+margin_top = -58.0
+margin_right = 76.0
+margin_bottom = -44.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "Bilinear interpolation"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="pseudo_random_step_combine" type="Sprite" parent="." index="11"]
+
+editor/display_folded = true
+material = SubResource( 20 )
+position = Vector2( 846.105, 464.273 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="pseudo_random_step_combine" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -94.0
+margin_top = -60.0
+margin_right = 108.0
+margin_bottom = -46.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "Step combine generated noises"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
 
 
