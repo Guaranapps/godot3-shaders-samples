@@ -1,0 +1,500 @@
+[gd_scene load_steps=17 format=2]
+
+[ext_resource path="res://icon.png" type="Texture" id=1]
+[ext_resource path="res://noise.png" type="Texture" id=2]
+
+[sub_resource type="Shader" id=1]
+
+code = "shader_type canvas_item;
+
+//call for each pixels
+void fragment() {
+	//- COLOR is output pixel
+	//- TEXTURE is default sprite texture
+	//- UV is mapping coordinates
+	//texture(sampler2D,vec2) read interpolated value of texture (1st parameter) on coordinates UV (normalize between 0 and 1)
+	COLOR = texture(TEXTURE,UV);
+}"
+
+[sub_resource type="ShaderMaterial" id=2]
+
+render_priority = 0
+shader = SubResource( 1 )
+
+[sub_resource type="Shader" id=3]
+
+code = "shader_type canvas_item;
+
+//Number of texture repetition
+uniform float repeat_factor=2.0;
+
+void fragment() {
+	//We use \"mod\" function to repeat texture.
+	//UV will go from 0 to repeat_factor, as texture function expects values between [0-1] we modulate result to repeat
+	COLOR = texture(TEXTURE,mod(UV*repeat_factor,vec2(1.0,1.0)));
+}"
+
+[sub_resource type="ShaderMaterial" id=4]
+
+render_priority = 0
+shader = SubResource( 3 )
+shader_param/repeat_factor = 2.0
+_sections_unfolded = [ "shader_param" ]
+
+[sub_resource type="Shader" id=5]
+
+code = "shader_type canvas_item;
+
+uniform float frequency=5.0;
+uniform float speed=1.0;
+
+void fragment() {
+	//sinus function give values between [-1;1] so (sin(..)+1)/2 give values between [0;1]
+	//basically we will display function y=sin(x)
+	//here TIME is use as offset with speed variable control
+	float limit_val=(sin(UV.x*frequency+TIME*speed)+1.0)/2.0;
+	if(UV.y<limit_val){
+		COLOR = texture(TEXTURE,UV);
+	}else{
+		COLOR = vec4(0.0,0.0,0.0,0.0);
+	}
+}"
+
+[sub_resource type="ShaderMaterial" id=6]
+
+render_priority = 0
+shader = SubResource( 5 )
+shader_param/frequency = 5.0
+shader_param/speed = 1.0
+_sections_unfolded = [ "shader_param" ]
+
+[sub_resource type="Shader" id=7]
+
+code = "shader_type canvas_item;
+
+uniform sampler2D noise_texture;
+uniform float noise_factor=0.2;
+
+void fragment() {
+	//We read noise texture, as texture is in greyscale we only use red channel
+	float noise_val=texture(noise_texture,UV).r;
+	//UV is altered with noise value
+	COLOR=texture(TEXTURE,mod(UV+noise_factor*noise_val,vec2(1.0,1.0)));
+}"
+
+[sub_resource type="ShaderMaterial" id=8]
+
+render_priority = 0
+shader = SubResource( 7 )
+shader_param/noise_factor = null
+shader_param/noise_texture = ExtResource( 2 )
+_sections_unfolded = [ "shader_param" ]
+
+[sub_resource type="Shader" id=9]
+
+code = "shader_type canvas_item;
+
+uniform sampler2D noise_texture;
+uniform float noise_factor=0.2;
+uniform float speed=0.2;
+
+void fragment() {
+	//We read noise texture with TIME offset
+	float noise_val=texture(noise_texture,mod(UV+speed*TIME,vec2(1.0,1.0)) ).r;
+	//UV is altered with noise value
+	COLOR=texture(TEXTURE,mod(UV+noise_factor*noise_val,vec2(1.0,1.0)));
+}"
+
+[sub_resource type="ShaderMaterial" id=10]
+
+render_priority = 0
+shader = SubResource( 9 )
+shader_param/noise_factor = null
+shader_param/speed = null
+shader_param/noise_texture = ExtResource( 2 )
+_sections_unfolded = [ "shader_param" ]
+
+[sub_resource type="Shader" id=11]
+
+code = "shader_type canvas_item;
+
+uniform sampler2D noise_texture;
+uniform float speed1=0.02;
+uniform float speed2=0.05;
+uniform float threshold_min=0.5;
+uniform float threshold_max=1.5;
+uniform bool use_alpha=true;
+
+void fragment() {
+	vec4 col0=texture(noise_texture,mod(UV+TIME*speed1,vec2(1,1)) );
+	vec4 col1=texture(noise_texture,mod(UV+TIME*speed2,vec2(1,1)) );
+	if(use_alpha){
+		//we apply red channel as alpha
+		col0.a=col0.r;
+		col1.a=col1.r;
+	}
+	//if last parameter<threshold1=> COLOR is black
+	//if last parameter>threshold2=> COLOR is white
+	//between value is iterpolated
+	//here col0+col1 is between [0;2]
+	COLOR=smoothstep(threshold_min,threshold_max,col0+col1);
+}"
+
+[sub_resource type="ShaderMaterial" id=12]
+
+render_priority = 0
+shader = SubResource( 11 )
+shader_param/speed1 = 0.02
+shader_param/speed2 = 0.05
+shader_param/threshold_min = 0.5
+shader_param/threshold_max = 1.5
+shader_param/use_alpha = true
+shader_param/noise_texture = ExtResource( 2 )
+_sections_unfolded = [ "shader_param" ]
+
+[sub_resource type="Shader" id=13]
+
+code = "shader_type canvas_item;
+
+uniform sampler2D noise_texture;
+uniform float speed1=0.02;
+uniform float speed2=0.05;
+uniform float threshold_min=0.5;
+uniform float threshold_max=0.58;
+
+void fragment() {
+	vec4 col0=texture(noise_texture,mod(UV+TIME*speed1,vec2(1,1)) );
+	vec4 col1=texture(noise_texture,mod(UV+TIME*speed2,vec2(1,1)) );
+	//we apply red channel as alpha
+	col0.a=col0.r;
+	col1.a=col1.r;
+	//step function return 0 if last parameter is < threshold and 1 otherwise
+	//here we want 1 if value between threshold_min and threshold_max
+	//same result as following code:
+	/*
+	float col=(col0.r+col1.r)/2.0;
+	if(col>threshold_min && col<threshold_max){
+		COLOR=vec4(1.0,1.0,1.0,1.0);
+	}else{
+		COLOR=vec4(1.0,1.0,1.0,0.0);
+	}
+	*/
+	//here we normalize col0+col1 (/2.0) to have result between [0,1]
+	COLOR=step(threshold_min,(col0+col1)/2.0)*(1.0-step(threshold_max,(col0+col1)/2.0));
+}"
+
+[sub_resource type="ShaderMaterial" id=14]
+
+render_priority = 0
+shader = SubResource( 13 )
+shader_param/speed1 = 0.02
+shader_param/speed2 = 0.05
+shader_param/threshold_min = 0.5
+shader_param/threshold_max = 0.58
+shader_param/noise_texture = ExtResource( 2 )
+_sections_unfolded = [ "shader_param" ]
+
+[node name="main" type="Node2D" index="0"]
+
+[node name="default_shader" type="Sprite" parent="." index="0"]
+
+material = SubResource( 2 )
+position = Vector2( 160.578, 120.397 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="formula" type="Label" parent="default_shader" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -97.0
+margin_top = -79.0
+margin_right = 98.0
+margin_bottom = -65.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "COLOR = texture(TEXTURE,UV)"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+
+[node name="uv_x" type="Label" parent="default_shader" index="1"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -69.0
+margin_top = 41.0
+margin_right = -36.0
+margin_bottom = 55.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "UV.x"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+
+[node name="UV_Y_direction2" type="Polygon2D" parent="default_shader/uv_x" index="0"]
+
+position = Vector2( 68.7599, 6.15773 )
+rotation = -1.5708
+polygon = PoolVector2Array( 275, 65, 285, 65, 285, 105, 290, 105, 280, 120, 270, 105, 275, 105 )
+uv = PoolVector2Array(  )
+color = Color( 1, 1, 1, 1 )
+vertex_colors = PoolColorArray(  )
+offset = Vector2( -279.801, -90.5607 )
+antialiased = false
+texture = null
+texture_offset = Vector2( 0, 0 )
+texture_scale = Vector2( 1, 1 )
+texture_rotation_degrees = 0.0
+invert_enable = false
+invert_border = 100.0
+_sections_unfolded = [ "Transform" ]
+
+[node name="uv_y" type="Label" parent="default_shader" index="2"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = 37.4218
+margin_top = -34.3971
+margin_right = 70.4218
+margin_bottom = -20.3971
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "UV.y"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+
+[node name="UV_Y_direction" type="Polygon2D" parent="default_shader/uv_y" index="0"]
+
+position = Vector2( 16.0647, 39.1913 )
+polygon = PoolVector2Array( 275, 65, 285, 65, 285, 105, 290, 105, 280, 120, 270, 105, 275, 105 )
+uv = PoolVector2Array(  )
+color = Color( 1, 1, 1, 1 )
+vertex_colors = PoolColorArray(  )
+offset = Vector2( -279.065, -86.1913 )
+antialiased = false
+texture = null
+texture_offset = Vector2( 0, 0 )
+texture_scale = Vector2( 1, 1 )
+texture_rotation_degrees = 0.0
+invert_enable = false
+invert_border = 100.0
+
+[node name="repeat_shader" type="Sprite" parent="." index="1"]
+
+material = SubResource( 4 )
+position = Vector2( 438.445, 103.262 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="formula" type="Label" parent="repeat_shader" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -147.0
+margin_top = -52.0
+margin_right = 262.0
+margin_bottom = -38.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "COLOR = texture(TEXTURE,mod(UV*repeat_factor,vec2(1.0,1.0)));"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="sin_shader" type="Sprite" parent="." index="2"]
+
+material = SubResource( 6 )
+position = Vector2( 831.522, 116.881 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="sin_shader" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -69.0
+margin_top = -59.0
+margin_right = 83.0
+margin_bottom = -45.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "Sinus function display"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="static_refraction" type="Sprite" parent="." index="3"]
+
+material = SubResource( 8 )
+position = Vector2( 154.514, 320.759 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="static_refraction" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -103.0
+margin_top = -57.0
+margin_right = 143.0
+margin_bottom = -43.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "Use noise texture to modify UV values"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="dynamic_refraction" type="Sprite" parent="." index="4"]
+
+material = SubResource( 10 )
+position = Vector2( 459.41, 322.23 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="dynamic_refraction" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -103.0
+margin_top = -57.0
+margin_right = 123.0
+margin_bottom = -43.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "Use noise texture with time offset"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="cloud" type="Sprite" parent="." index="5"]
+
+material = SubResource( 12 )
+position = Vector2( 734.938, 321.155 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="cloud" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -119.0
+margin_top = -56.0
+margin_right = 137.0
+margin_bottom = -42.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "Cloud generated for single noise texture (smoothstep)"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="foam" type="Sprite" parent="." index="6"]
+
+material = SubResource( 14 )
+position = Vector2( 751.957, 479.718 )
+texture = ExtResource( 1 )
+_sections_unfolded = [ "Material" ]
+
+[node name="label" type="Label" parent="foam" index="0"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = -70.0
+margin_top = -55.0
+margin_right = 88.0
+margin_bottom = -41.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "step function with noise"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+_sections_unfolded = [ "Material" ]
+
+[node name="tips" type="Label" parent="." index="7"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = 101.0
+margin_top = 476.0
+margin_right = 429.0
+margin_bottom = 507.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+mouse_filter = 2
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 4
+text = "Here are some shader examples
+Check shader comment (in source) for more details
+(Go in sprite>material>shader)"
+percent_visible = 1.0
+lines_skipped = 0
+max_lines_visible = -1
+
+
